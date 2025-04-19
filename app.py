@@ -57,7 +57,6 @@ def calculate_min_cost():
     min_cost = float('inf')
     best_route = []
 
-    
     for order in permutations(pickup_centers):        
         path = list(order) + ['L1']
         carried_weight = 0
