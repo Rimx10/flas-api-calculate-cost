@@ -63,6 +63,8 @@ def calculate_cost(path, weight_by_segment):
 def calculate_min_cost():
     data = request.get_json()
     requested_products = {k: v for k, v in data.items() if v > 0}
+    if not requested_products:
+        return jsonify({'error': 'No valid products with quantity > 0'}), 400
     product_weights = {}
     pickup_centers = set()
     for product, quantity in requested_products.items():
@@ -92,8 +94,7 @@ def calculate_min_cost():
                 segment_pickup = 0
                 for product, weight in product_weights.items():
                     product_center = get_product_location(product)
-                    if product_center == path[
-                            i] and product not in visited_products:
+                    if product_center == path[i] and product not in visited_products:
                         segment_pickup += weight
                         visited_products.add(product)
                 current_weight += segment_pickup
@@ -102,6 +103,8 @@ def calculate_min_cost():
             if cost < min_cost:
                 min_cost = cost
                 best_route = path
+    if min_cost == float('inf'):
+        return jsonify({'error': 'No valid delivery route found'}), 400
     return jsonify({'minimum_cost': round(min_cost)})
 
 
