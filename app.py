@@ -16,6 +16,7 @@ DISTANCE = {
     'C3': {'C1': 3, 'C2': 3, 'L1': 2}
 }
 
+
 def get_product_location(product):
     for center, products in WAREHOUSES.items():
         if product in products:
@@ -34,12 +35,6 @@ def calculate_cost(path, weight_by_segment):
         total_cost += cost_per_unit * distance
     return total_cost
 
-@app.route('/', methods=['GET'])
-def home():
-    return '''
-    <h1>Welcome to the Cost Calculator API</h1>
-    <p>Use the <code>/calculate-cost</code> endpoint with a POST request and JSON data.</p>
-    '''
 
 @app.route('/calculate-cost', methods=['POST'])
 def calculate_min_cost():
@@ -49,47 +44,47 @@ def calculate_min_cost():
         return jsonify({'error': 'No valid products with quantity > 0'}), 400
 
     product_weights = {}
-    pickup_centers = set()
+    center_products = {}
+
     for product, quantity in requested_products.items():
         location = get_product_location(product)
-        if location:
-            weight = WAREHOUSES[location][product] * quantity
-            product_weights[product] = weight
-            pickup_centers.add(location)
-        else:
+        if not location:
             return jsonify({'error': f"Invalid product: {product}"}), 400
+        weight = WAREHOUSES[location][product] * quantity
+        product_weights[product] = weight
+        center_products.setdefault(location, []).append(product)
 
+    centers = list(center_products.keys())
     min_cost = float('inf')
-    best_route = []
 
-    for start in ['C1', 'C2', 'C3']:
-        for order in permutations(pickup_centers):
-            if order[0] != start:
-                continue
-            path = list(order) + ['L1']
-            carried_weight = 0
-            weight_by_segment = []
-            visited_products = set()
+    for perm in permutations(centers):
+        path = list(perm) + ['L1']
+        weight_by_segment = []
+        visited_products = set()
+        current_weight = 0
 
-            for i in range(len(path) - 1):
-                segment_pickup = 0
-                for product, weight in product_weights.items():
-                    product_center = get_product_location(product)
-                    if product_center == path[i] and product not in visited_products:
-                        segment_pickup += weight
-                        visited_products.add(product)
-                carried_weight += segment_pickup
-                weight_by_segment.append(carried_weight)
+        for i in range(len(path) - 1):
+            segment_pickup = 0
+            center = path[i]
+            for product in center_products.get(center, []):
+                if product not in visited_products:
+                    segment_pickup += product_weights[product]
+                    visited_products.add(product)
+            current_weight += segment_pickup
+            weight_by_segment.append(current_weight)
 
-            cost = calculate_cost(path, weight_by_segment)
-            if cost < min_cost:
-                min_cost = cost
-                best_route = path
-
-    if min_cost == float('inf'):
-        return jsonify({'error': 'No valid delivery route found'}), 400
+        cost = calculate_cost(path, weight_by_segment)
+        if cost < min_cost:
+            min_cost = cost
 
     return jsonify({'minimum_cost': round(min_cost)})
 
+@app.route('/')
+def home():
+    return '''
+    <h1>Welcome to the Cost Calculator API</h1>
+    <p>Use the <code>/calculate-cost</code> endpoint with a POST request and JSON data.</p>
+    '''
+
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=3000)
+    app.run(debug=True, host="0.0.0.0", port=3000)
