@@ -4,14 +4,12 @@ import math
 
 app = Flask(__name__)
 
-# Warehouse data
 WAREHOUSES = {
     'C1': {'A': 3, 'B': 2, 'C': 8},
     'C2': {'D': 12, 'E': 25, 'F': 15},
     'C3': {'G': 0.5, 'H': 1, 'I': 2}
 }
 
-# Distance graph (undirected)
 DISTANCE = {
     'C1': {'C2': 4, 'C3': 3, 'L1': 3},
     'C2': {'C1': 4, 'C3': 3, 'L1': 2.5},
@@ -26,59 +24,55 @@ def get_product_location(product):
     return None
 
 
-def calculate_cost(path, weight_by_segment):
+def calculate_cost(path, warehouse_weights):
     total_cost = 0
+    current_weight = 0
     for i in range(len(path) - 1):
-        weight = weight_by_segment[i]
-        distance = DISTANCE[path[i]][path[i + 1]]
-        if weight <= 5:
+        current_node = path[i]
+        next_node = path[i + 1]
+
+        # pickup from this warehouse if applicable
+        if current_node in warehouse_weights:
+            current_weight += warehouse_weights[current_node]
+
+        distance = DISTANCE[current_node][next_node]
+
+        # calculate cost per unit based on weight slab
+        if current_weight <= 5:
             cost_per_unit = 10
         else:
-            extra_weight = math.ceil((weight - 5) / 5)
-            cost_per_unit = 10 + (extra_weight * 8)
+            cost_per_unit = 10 + math.ceil((current_weight - 5) / 5) * 8
+
         total_cost += cost_per_unit * distance
+
     return total_cost
 
 
 @app.route('/calculate-cost', methods=['POST'])
 def calculate_min_cost():
     data = request.get_json()
-
     requested_products = {k: v for k, v in data.items() if v > 0}
+
     if not requested_products:
         return jsonify({'error': 'No valid products with quantity > 0'}), 400
 
-    product_weights = {}
-    center_products = {'C1': [], 'C2': [], 'C3': []}
+    # Group weights by warehouse
+    warehouse_weights = {}
     for product, quantity in requested_products.items():
         location = get_product_location(product)
         if not location:
-            return jsonify({'error': f"Invalid product: {product}"}), 400
-        weight = WAREHOUSES[location][product] * quantity
-        product_weights[product] = weight
-        center_products[location].append(product)
+            return jsonify({'error': f'Invalid product: {product}'}), 400
 
-    pickup_centers = [center for center in center_products if center_products[center]]
+        weight = WAREHOUSES[location][product] * quantity
+        warehouse_weights[location] = warehouse_weights.get(location, 0) + weight
 
     min_cost = float('inf')
 
-    for order in permutations(pickup_centers):
+    # Try all pickup center permutations
+    for order in permutations(warehouse_weights.keys()):
         path = list(order) + ['L1']
-        weight_by_segment = []
-        visited_products = set()
-        carried_weight = 0
-
-        for i in range(len(path) - 1):
-            current_center = path[i]
-            for product in center_products.get(current_center, []):
-                if product not in visited_products:
-                    carried_weight += product_weights[product]
-                    visited_products.add(product)
-            weight_by_segment.append(carried_weight)
-
-        cost = calculate_cost(path, weight_by_segment)
-        if cost < min_cost:
-            min_cost = cost
+        cost = calculate_cost(path, warehouse_weights)
+        min_cost = min(min_cost, cost)
 
     return jsonify({'minimum_cost': round(min_cost)})
 
