@@ -26,26 +26,23 @@ def get_product_location(product):
 
 def calculate_cost(path, warehouse_weights):
     total_cost = 0
-    carried_weight = 0
 
     for i in range(len(path) - 1):
         current_node = path[i]
         next_node = path[i + 1]
 
-        # Pick up weight at current node if it’s a warehouse
-        picked_weight = warehouse_weights.get(current_node, 0)
-        carried_weight += picked_weight
-
+        segment_weight = warehouse_weights.get(current_node, 0)
         distance = DISTANCE[current_node][next_node]
 
-        if carried_weight <= 5:
+        if segment_weight <= 5:
             cost_per_unit = 10
         else:
-            cost_per_unit = 10 + math.ceil((carried_weight - 5) / 5) * 8
+            cost_per_unit = 10 + math.ceil((segment_weight - 5) / 5) * 8
 
         total_cost += cost_per_unit * distance
 
     return total_cost
+
 
 
 @app.route('/calculate-cost', methods=['POST'])
