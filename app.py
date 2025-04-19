@@ -26,7 +26,7 @@ def get_product_location(product):
 def calculate_cost(path, weight_by_segment):
     total_cost = 0
     for i in range(len(path) - 1):
-        segment_weight = weight_by_segment[i]
+        segment_weight = weight_by_segment[i] if i == 0 else weight_by_segment[i] - weight_by_segment[i - 1]
         distance = DISTANCE[path[i]][path[i + 1]]
         if segment_weight <= 5:
             cost_per_unit = 10
