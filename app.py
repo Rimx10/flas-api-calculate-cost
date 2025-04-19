@@ -32,7 +32,7 @@ def calculate_cost(path, weight_by_segment):
 def calculate_min_cost():
     data = request.get_json()
     requested_products = {k: v for k, v in data.items() if v > 0}
-    product_weights = []
+    product_weights = {}
     pickup_centers = set()
     for product, quantity in requested_products.items():
         location = get_product_location(product)
