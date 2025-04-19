@@ -1,7 +1,7 @@
 from flask import Flask, request, jsonify
 from itertools import permutations
 
-app = Flask(_name_)
+app = Flask(__name__)
 #warehouse data
 WAREHOUSES = {
     'C1': {'A': 3, 'B': 2, 'C': 8},
