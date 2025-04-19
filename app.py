@@ -4,17 +4,20 @@ import math
 
 app = Flask(__name__)
 
+# Warehouse data
 WAREHOUSES = {
     'C1': {'A': 3, 'B': 2, 'C': 8},
     'C2': {'D': 12, 'E': 25, 'F': 15},
     'C3': {'G': 0.5, 'H': 1, 'I': 2}
 }
 
+# Distance graph (undirected)
 DISTANCE = {
     'C1': {'C2': 4, 'C3': 3, 'L1': 3},
     'C2': {'C1': 4, 'C3': 3, 'L1': 2.5},
     'C3': {'C1': 3, 'C2': 3, 'L1': 2}
 }
+
 
 def get_product_location(product):
     for center, products in WAREHOUSES.items():
@@ -22,42 +25,29 @@ def get_product_location(product):
             return center
     return None
 
-def calculate_cost(path, product_weights, product_locations):
-    current_weight = 0
+
+def calculate_cost(path, weight_by_segment):
     total_cost = 0
-    visited_products = set()
-
     for i in range(len(path) - 1):
-        pickup_center = path[i]
-        next_stop = path[i + 1]
-        segment_pickup = 0
-
-        for product, weight in product_weights.items():
-            if product_locations[product] == pickup_center and product not in visited_products:
-                segment_pickup += weight
-                visited_products.add(product)
-
-        current_weight += segment_pickup
-
-        distance = DISTANCE[pickup_center][next_stop]
-        if current_weight <= 5:
-            cost_per_km = 10
+        weight = weight_by_segment[i]
+        distance = DISTANCE[path[i]][path[i + 1]]
+        if weight <= 5:
+            cost_per_unit = 10
         else:
-            extra = math.ceil((current_weight - 5) / 5)
-            cost_per_km = 10 + extra * 8
-
-        total_cost += cost_per_km * distance
-
+            extra_weight = math.ceil((weight - 5) / 5)
+            cost_per_unit = 10 + (extra_weight * 8)
+        total_cost += cost_per_unit * distance
     return total_cost
+
 
 @app.route('/calculate-cost', methods=['POST'])
 def calculate_min_cost():
     data = request.get_json()
+
     requested_products = {k: v for k, v in data.items() if v > 0}
     if not requested_products:
         return jsonify({'error': 'No valid products with quantity > 0'}), 400
 
-    # Map products to weights and pickup centers
     product_weights = {}
     center_products = {'C1': [], 'C2': [], 'C3': []}
     for product, quantity in requested_products.items():
@@ -92,9 +82,14 @@ def calculate_min_cost():
 
     return jsonify({'minimum_cost': round(min_cost)})
 
+
 @app.route('/')
 def home():
-    return '<h1>Delivery Cost Calculator API</h1><p>POST to /calculate-cost with product quantities.</p>'
+    return '''
+    <h1>Welcome to the Cost Calculator API</h1>
+    <p>Use the <code>/calculate-cost</code> endpoint with a POST request and JSON data.</p>
+    '''
+
 
 if __name__ == '__main__':
     app.run(debug=True, host="0.0.0.0", port=3000)
