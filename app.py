@@ -54,29 +54,41 @@ def calculate_cost(path, product_weights, product_locations):
 def calculate_min_cost():
     data = request.get_json()
     requested_products = {k: v for k, v in data.items() if v > 0}
-
     if not requested_products:
         return jsonify({'error': 'No valid products with quantity > 0'}), 400
 
+    # Map products to weights and pickup centers
     product_weights = {}
-    product_locations = {}
-    pickup_centers = set()
-
+    center_products = {'C1': [], 'C2': [], 'C3': []}
     for product, quantity in requested_products.items():
         location = get_product_location(product)
         if not location:
             return jsonify({'error': f"Invalid product: {product}"}), 400
-        product_locations[product] = location
         weight = WAREHOUSES[location][product] * quantity
         product_weights[product] = weight
-        pickup_centers.add(location)
+        center_products[location].append(product)
+
+    pickup_centers = [center for center in center_products if center_products[center]]
 
     min_cost = float('inf')
 
-    for perm in permutations(pickup_centers):
-        path = list(perm) + ['L1']
-        cost = calculate_cost(path, product_weights, product_locations)
-        min_cost = min(min_cost, cost)
+    for order in permutations(pickup_centers):
+        path = list(order) + ['L1']
+        weight_by_segment = []
+        visited_products = set()
+        carried_weight = 0
+
+        for i in range(len(path) - 1):
+            current_center = path[i]
+            for product in center_products.get(current_center, []):
+                if product not in visited_products:
+                    carried_weight += product_weights[product]
+                    visited_products.add(product)
+            weight_by_segment.append(carried_weight)
+
+        cost = calculate_cost(path, weight_by_segment)
+        if cost < min_cost:
+            min_cost = cost
 
     return jsonify({'minimum_cost': round(min_cost)})
 
