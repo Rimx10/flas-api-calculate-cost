@@ -1,82 +1,86 @@
 from flask import Flask, request, jsonify
 from itertools import permutations
+import math
 
 app = Flask(__name__)
 
-# Warehouse data
-WAREHOUSES = {
-    'C1': {'A': 3, 'B': 2, 'C': 8},
-    'C2': {'D': 12, 'E': 25, 'F': 15},
-    'C3': {'G': 0.5, 'H': 1, 'I': 2}
+# Product location and weight database
+product_db = {
+    'A': ('C1', 3),
+    'B': ('C1', 2),
+    'C': ('C1', 8),
+    'D': ('C2', 12),
+    'E': ('C2', 25),
+    'F': ('C2', 15),
+    'G': ('C3', 0.5),
+    'H': ('C3', 1),
+    'I': ('C3', 2),
 }
 
-# Distance graph (undirected)
-DISTANCE = {
-    'C1': {'C2': 4, 'C3': 3, 'L1': 3},
-    'C2': {'C1': 4, 'C3': 3, 'L1': 2.5},
-    'C3': {'C1': 3, 'C2': 3, 'L1': 2},
+# Distances between nodes
+distance = {
+    ('C1', 'C2'): 4,
+    ('C2', 'C1'): 4,
+    ('C1', 'C3'): 3,
+    ('C3', 'C1'): 3,
+    ('C2', 'C3'): 2,
+    ('C3', 'C2'): 2,
+    ('C1', 'L1'): 3,
+    ('L1', 'C1'): 3,
+    ('C2', 'L1'): 2.5,
+    ('L1', 'C2'): 2.5,
+    ('C3', 'L1'): 3,
+    ('L1', 'C3'): 3,
 }
 
-def get_product_location(product):
-    for center, products in WAREHOUSES.items():
-        if product in products:
-            return center
-    return None
+# Cost calculation function
+def calculate_cost(weight, dist):
+    if weight <= 5:
+        return dist * 10
+    else:
+        base_cost = dist * 10
+        additional_weight = weight - 5
+        additional_blocks = math.ceil(additional_weight / 5)
+        additional_cost = additional_blocks * dist * 8
+        return base_cost + additional_cost
 
-def calculate_cost(path, weight_by_segment):
-    total_cost = 0
-    for i in range(len(path) - 1):
-        segment_weight = weight_by_segment[i]
-        distance = DISTANCE[path[i]][path[i+1]]
-        cost_per_unit = 10 if segment_weight <= 5 else 10 + ((segment_weight - 5) // 5 + 1) * 8
-        total_cost += cost_per_unit * distance
-    return total_cost
+@app.route('/min_cost', methods=['POST'])
+def min_cost():
+    order = request.get_json()
 
-@app.route('/calculate-cost', methods=['POST'])
-def calculate_min_cost():
-    data = request.get_json()
-    requested_products = {k: v for k, v in data.items() if v > 0}
-    
-    product_weights = {}  # Change this to a dictionary
-    pickup_centers = set()
+    # Organize products by center
+    center_products = {'C1': [], 'C2': [], 'C3': []}
+    for product, qty in order.items():
+        if product in product_db and qty > 0:
+            center, weight = product_db[product]
+            center_products[center].append((product, qty, weight))
 
-    for product, quantity in requested_products.items():
-        location = get_product_location(product)
-        if location:
-            weight = WAREHOUSES[location][product] * quantity
-            product_weights[product] = weight
-            pickup_centers.add(location)
-        else:
-            return jsonify({'error': f"Invalid product: {product}"}), 400
-    
-    min_cost = float('inf')
-    best_center = None
-    for start in ['C1', 'C2', 'C3']:
-        if start not in DISTANCE:
-            continue
-        for order in permutations(pickup_centers):
-            if order[0] != start:
-                continue
-            path = list(order) + ['L1']
-            current_weight = 0
-            weight_by_segment = []  # To store the weight of each segment
+    # Get involved centers
+    involved_centers = [center for center in center_products if center_products[center]]
 
-            visited_products = set()
-            for i in range(len(path) - 1):
-                segment_pickup = 0
-                for product, weight in product_weights.items():
-                    product_center = get_product_location(product)
-                    if product_center == path[i] and product not in visited_products:
-                        segment_pickup += weight
-                        visited_products.add(product)
-                weight_by_segment.append(segment_pickup)  # Append weight for the segment
-            
-            cost = calculate_cost(path, weight_by_segment)  # Calculate cost after accumulating segment weights
-            if cost < min_cost:
-                min_cost = cost
-                best_route = path
+    min_total_cost = float('inf')
 
-    return jsonify({'minimum_cost': round(min_cost)})
+    for start in involved_centers:
+        other_centers = [c for c in involved_centers if c != start]
+        for perm in permutations(other_centers):
+            route = [start] + list(perm) + ['L1']
+            total_cost = 0
+            carried_items = []
+
+            for i in range(len(route)-1):
+                from_node = route[i]
+                to_node = route[i+1]
+
+                if from_node in center_products:
+                    carried_items.extend(center_products[from_node])
+
+                weight = sum(qty * wt for _, qty, wt in carried_items)
+                dist = distance.get((from_node, to_node), float('inf'))
+                total_cost += calculate_cost(weight, dist)
+
+            min_total_cost = min(min_total_cost, total_cost)
+
+    return jsonify({'minimum_cost': int(min_total_cost)})
 
 if __name__ == '__main__':
-    app.run(host="0.0.0.0", port=3000)
+    app.run(host='0.0.0.0', port=3000)
