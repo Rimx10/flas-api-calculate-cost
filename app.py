@@ -57,9 +57,7 @@ def calculate_min_cost():
     min_cost = float('inf')
     best_route = []
 
-    for start in ['C1', 'C2', 'C3']:
-        if start not in DISTANCE:
-            continue
+    
     for order in permutations(pickup_centers):        
         path = list(order) + ['L1']
         carried_weight = 0
