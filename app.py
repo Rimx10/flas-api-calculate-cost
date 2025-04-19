@@ -26,25 +26,26 @@ def get_product_location(product):
 
 def calculate_cost(path, warehouse_weights):
     total_cost = 0
+    carried_weight = 0
 
     for i in range(len(path) - 1):
         current_node = path[i]
         next_node = path[i + 1]
 
-        # Only use the weight picked up at this node
-        segment_weight = warehouse_weights.get(current_node, 0)
+        # Pick up weight at current node if it’s a warehouse
+        picked_weight = warehouse_weights.get(current_node, 0)
+        carried_weight += picked_weight
 
         distance = DISTANCE[current_node][next_node]
 
-        if segment_weight <= 5:
+        if carried_weight <= 5:
             cost_per_unit = 10
         else:
-            cost_per_unit = 10 + math.ceil((segment_weight - 5) / 5) * 8
+            cost_per_unit = 10 + math.ceil((carried_weight - 5) / 5) * 8
 
         total_cost += cost_per_unit * distance
 
     return total_cost
-
 
 
 @app.route('/calculate-cost', methods=['POST'])
@@ -55,7 +56,6 @@ def calculate_min_cost():
     if not requested_products:
         return jsonify({'error': 'No valid products with quantity > 0'}), 400
 
-    # Group weights by warehouse
     warehouse_weights = {}
     for product, quantity in requested_products.items():
         location = get_product_location(product)
@@ -67,7 +67,6 @@ def calculate_min_cost():
 
     min_cost = float('inf')
 
-    # Try all pickup center permutations
     for order in permutations(warehouse_weights.keys()):
         path = list(order) + ['L1']
         cost = calculate_cost(path, warehouse_weights)
