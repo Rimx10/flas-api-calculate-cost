@@ -61,8 +61,7 @@ def calculate_min_cost():
         if start not in DISTANCE:
             continue
         for order in permutations(pickup_centers):
-            if order[0] != start:
-                continue
+            
             path = list(order) + ['L1']
             carried_weight = 0
             weight_by_segment = []
