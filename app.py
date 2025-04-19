@@ -71,5 +71,12 @@ def calculate_min_cost():
                 min_cost = cost
                 best_route = path
     return jsonify({'minimum_cost': round(min_cost)})
+@app.route('/')
+def home():
+    return '''
+    <h1>Welcome to the Cost Calculator API</h1>
+    <p>Use the <code>/calculate-cost</code> endpoint with a POST request and JSON data.</p>
+    '''
+
 if __name__ == '__main__':
     app.run(debug=True, host="0.0.0.0", port=3000)
