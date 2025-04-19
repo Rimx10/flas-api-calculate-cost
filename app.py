@@ -60,27 +60,25 @@ def calculate_min_cost():
     for start in ['C1', 'C2', 'C3']:
         if start not in DISTANCE:
             continue
-        for order in permutations(pickup_centers):
-            
-            path = list(order) + ['L1']
-            carried_weight = 0
-            weight_by_segment = []
-            visited_products = set()
+    for order in permutations(pickup_centers):        
+        path = list(order) + ['L1']
+        carried_weight = 0
+        weight_by_segment = []
+        visited_products = set()
+        for i in range(len(path) - 1):
+            segment_pickup = 0
+            for product, weight in product_weights.items():
+                product_center = get_product_location(product)
+                if product_center == path[i] and product not in visited_products:
+                    segment_pickup += weight
+                    visited_products.add(product)
+            carried_weight += segment_pickup
+            weight_by_segment.append(carried_weight)
 
-            for i in range(len(path) - 1):
-                segment_pickup = 0
-                for product, weight in product_weights.items():
-                    product_center = get_product_location(product)
-                    if product_center == path[i] and product not in visited_products:
-                        segment_pickup += weight
-                        visited_products.add(product)
-                carried_weight += segment_pickup
-                weight_by_segment.append(carried_weight)
-
-            cost = calculate_cost(path, weight_by_segment)
-            if cost < min_cost:
-                min_cost = cost
-                best_route = path
+        cost = calculate_cost(path, weight_by_segment)
+        if cost < min_cost:
+            min_cost = cost
+            best_route = path
 
     if min_cost == float('inf'):
         return jsonify({'error': 'No valid delivery route found'}), 400
