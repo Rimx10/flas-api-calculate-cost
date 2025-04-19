@@ -68,6 +68,6 @@ def calculate_min_cost():
                     min_cost = cost
                     best_route = path
     return jsonify({'minimum_cost': round(min_cost)})
-if _name_ == '_main_':
+if __name__ == '__main__':
     app.run(debug=True)
     app.run(host="0.0.0.0", port=3000)
