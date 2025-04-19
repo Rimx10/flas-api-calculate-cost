@@ -16,25 +16,30 @@ DISTANCE = {
     'C3': {'C1': 3, 'C2': 3, 'L1': 2}
 }
 
-
 def get_product_location(product):
     for center, products in WAREHOUSES.items():
         if product in products:
             return center
     return None
 
-def calculate_cost(path, weight_by_segment):
-    total_cost = 0
-    for i in range(len(path) - 1):
-        segment_weight = weight_by_segment[i] if i == 0 else weight_by_segment[i] - weight_by_segment[i - 1]
-        distance = DISTANCE[path[i]][path[i + 1]]
-        if segment_weight <= 5:
-            cost_per_unit = 10
-        else:
-            cost_per_unit = 10 + math.ceil((segment_weight - 5) / 5) * 8
-        total_cost += cost_per_unit * distance
-    return total_cost
+def calculate_segment_cost(weight, distance):
+    if weight <= 5:
+        rate = 10
+    else:
+        rate = 10 + math.ceil((weight - 5) / 5) * 8
+    return rate * distance
 
+def calculate_total_cost(path, product_weights, center_products):
+    cost = 0
+    current_weight = 0
+    for i in range(len(path) - 1):
+        current_center = path[i]
+        # Pick up all products at this center
+        for product in center_products.get(current_center, []):
+            current_weight += product_weights[product]
+        distance = DISTANCE[current_center][path[i + 1]]
+        cost += calculate_segment_cost(current_weight, distance)
+    return cost
 
 @app.route('/calculate-cost', methods=['POST'])
 def calculate_min_cost():
@@ -45,35 +50,23 @@ def calculate_min_cost():
 
     product_weights = {}
     center_products = {}
+    pickup_centers = set()
 
-    for product, quantity in requested_products.items():
-        location = get_product_location(product)
-        if not location:
-            return jsonify({'error': f"Invalid product: {product}"}), 400
-        weight = WAREHOUSES[location][product] * quantity
+    # Map product weights and which centers have which products
+    for product, qty in requested_products.items():
+        center = get_product_location(product)
+        if not center:
+            return jsonify({'error': f'Invalid product: {product}'}), 400
+        weight = WAREHOUSES[center][product] * qty
         product_weights[product] = weight
-        center_products.setdefault(location, []).append(product)
+        pickup_centers.add(center)
+        center_products.setdefault(center, []).append(product)
 
-    centers = list(center_products.keys())
+    # Try all permutations of pickup centers ending in L1
     min_cost = float('inf')
-
-    for perm in permutations(centers):
+    for perm in permutations(pickup_centers):
         path = list(perm) + ['L1']
-        weight_by_segment = []
-        visited_products = set()
-        current_weight = 0
-
-        for i in range(len(path) - 1):
-            segment_pickup = 0
-            center = path[i]
-            for product in center_products.get(center, []):
-                if product not in visited_products:
-                    segment_pickup += product_weights[product]
-                    visited_products.add(product)
-            current_weight += segment_pickup
-            weight_by_segment.append(current_weight)
-
-        cost = calculate_cost(path, weight_by_segment)
+        cost = calculate_total_cost(path, product_weights, center_products)
         if cost < min_cost:
             min_cost = cost
 
@@ -87,4 +80,4 @@ def home():
     '''
 
 if __name__ == '__main__':
-    app.run(debug=True, host="0.0.0.0", port=3000)
+    app.run(debug=True, host='0.0.0.0', port=3000)
