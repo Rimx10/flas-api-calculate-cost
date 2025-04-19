@@ -47,29 +47,29 @@ def calculate_min_cost():
     min_cost = float('inf')
     best_route = []
     #best_center = None
-    for start in ['C1', 'C2', 'C3']:
-        if start not in DISTANCE:
-            continue
-        for order in permutations(pickup_centers):
-            if order[0] != start:
-                continue
-            path = list(order) + ['L1']
-            current_weight = 0
-            weight_by_segment = []
-            visited_products = set()
-            for i in range(len(path) - 1):
-                segment_pickup = 0
-                for product, weight in product_weights.items():
-                    product_center = get_product_location(product)
-                    if product_center == path[i] and product not in visited_products:
-                        segment_pickup += weight
-                        visited_products.add(product)
-                current_weight += segment_pickup
-                weight_by_segment.append(current_weight)
-            cost = calculate_cost(path, weight_by_segment)
-            if cost < min_cost:
-                min_cost = cost
-                best_route = path
+    #for start in ['C1', 'C2', 'C3']:
+        #if start not in DISTANCE:
+            #continue
+    for order in permutations(pickup_centers):
+            #if order[0] != start:
+                #continue
+        path = list(order) + ['L1']
+        current_weight = 0
+        weight_by_segment = []
+        visited_products = set()
+        for i in range(len(path) - 1):
+            segment_pickup = 0
+            for product, weight in product_weights.items():
+                product_center = get_product_location(product)
+                if product_center == path[i] and product not in visited_products:
+                    segment_pickup += weight
+                    visited_products.add(product)
+            current_weight += segment_pickup
+            weight_by_segment.append(current_weight)
+        cost = calculate_cost(path, weight_by_segment)
+        if cost < min_cost:
+            min_cost = cost
+            best_route = path
     return jsonify({'minimum_cost': round(min_cost)})
 @app.route('/')
 def home():
